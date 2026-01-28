@@ -7,14 +7,14 @@
  * macros. It is important to define these macros here, in the
  * header, because it is used by tests.
  */
-#define NEED_BROADCAST 0
-#define NEED_BATCH 0
+#define NEED_BROADCAST 1
+#define NEED_BATCH 1
 
 enum coro_bus_error_code {
 	CORO_BUS_ERR_NONE = 0,
 	CORO_BUS_ERR_NO_CHANNEL,
-	CORO_BUS_ERR_WOULD_BLOCK,
-	CORO_BUS_ERR_NOT_IMPLEMENTED,
+	CORO_BUS_ERR_WOULD_BLOCK, // 操作阻塞
+	CORO_BUS_ERR_NOT_IMPLEMENTED, // 未实现
 };
 
 struct coro_bus;

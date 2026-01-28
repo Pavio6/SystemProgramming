@@ -1,0 +1,4 @@
+/Users/paul/Documents/coding/C++/sysprog-master/1/build/CMakeFiles/test.dir
+/Users/paul/Documents/coding/C++/sysprog-master/1/build/CMakeFiles/libcoro_test.dir
+/Users/paul/Documents/coding/C++/sysprog-master/1/build/CMakeFiles/edit_cache.dir
+/Users/paul/Documents/coding/C++/sysprog-master/1/build/CMakeFiles/rebuild_cache.dir

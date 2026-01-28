@@ -86,49 +86,64 @@ coro_engine_create(struct coro_engine *engine)
 	rlist_create(&engine->coros_running_next);
 	rlist_create(&engine->coros_pool);
 }
-
+/**
+ * 切换到下一个可以运行的协程
+ */
 static void
 coro_engine_resume_next(struct coro_engine *engine)
 {
 	assert(!rlist_empty(&engine->coros_running_now));
+	// 从队列中取出首个协程 作为要切换的协程 to
 	struct coro *to = rlist_shift_entry(&engine->coros_running_now,
 		struct coro, link);
 	struct coro *from = engine->this_coro;
 	assert(from != NULL);
-
+	// 清空当前协程指针
 	engine->this_coro = NULL;
+	// 使用sigsetjmp和siglongjmp实现协程切换
 	if (sigsetjmp(from->ctx, 0) == 0)
 		siglongjmp(to->ctx, 1);
+	// 断言from没有挂在任何调度队列 
 	assert(rlist_empty(&from->link));
+	// 并且代码执行到这里时调度器还没把this_coro改掉
 	assert(engine->this_coro == NULL);
 	engine->this_coro = from;
 }
-
+/**
+ * 让当前运行的协程挂起
+ */
 static void
 coro_engine_suspend(struct coro_engine *engine)
 {
+
 	struct coro *this_coro = engine->this_coro;
 	if (this_coro == NULL) {
 		printf("Error: deadlock - suspension with no active "
 			"coroutines\n");
 		exit(-1);
 	}
+	// 断言当前协程不在调度队列中
 	assert(rlist_empty(&this_coro->link));
 	assert(this_coro->state == CORO_STATE_RUNNING);
 	this_coro->state = CORO_STATE_SUSPENDED;
 	coro_engine_resume_next(engine);
 }
-
+/**
+ * 当前协程主动让出执行权
+ */
 static void
 coro_engine_yield(struct coro_engine *engine)
 {
 	struct coro *this_coro = engine->this_coro;
 	assert(rlist_empty(&this_coro->link));
 	assert(this_coro->state == CORO_STATE_RUNNING);
+	// 把当前协程放到下一轮可运行队列的末尾
 	rlist_add_tail_entry(&engine->coros_running_next, this_coro, link);
 	coro_engine_resume_next(engine);
 }
-
+/**
+ * 把一个协程放回"可运行队列"
+ */
 static void
 coro_engine_wakeup(struct coro_engine *engine, struct coro *coro)
 {
@@ -136,9 +151,11 @@ coro_engine_wakeup(struct coro_engine *engine, struct coro *coro)
 		return;
 	if (coro->state == CORO_STATE_FINISHED)
 		return;
+	// 能被唤醒的只能是 SUSPENDED 状态的协程
 	assert(coro->state == CORO_STATE_SUSPENDED);
 	assert(rlist_empty(&coro->link));
 	coro->state = CORO_STATE_RUNNING;
+	// 将它加入到下一轮运行队列
 	rlist_add_tail_entry(&engine->coros_running_next, coro, link);
 }
 
@@ -313,13 +330,16 @@ coro_engine_spawn_new(struct coro_engine *engine, coro_f func, void *func_arg)
 	rlist_add_tail_entry(&engine->coros_running_next, c, link);
 	return c;
 }
-
+/**
+ * 创建/复用一个协程
+ */
 static struct coro *
 coro_engine_spawn(struct coro_engine *engine, coro_f func, void *func_arg)
 {
+	// 如果协程对象池为空
 	if (rlist_empty(&engine->coros_pool))
 		return coro_engine_spawn_new(engine, func, func_arg);
-
+	// 从对象池头部取一个协程对象
 	struct coro *c = rlist_shift_entry(&engine->coros_pool,
 		struct coro, link);
 	c->func = func;
@@ -329,7 +349,9 @@ coro_engine_spawn(struct coro_engine *engine, coro_f func, void *func_arg)
 	rlist_add_tail_entry(&engine->coros_running_next, c, link);
 	return c;
 }
-
+/**
+ * 挂起当前协程，直到目标协程结束，然后返回它的结果，并把目标协程放回对象池
+ */
 static void *
 coro_engine_join(struct coro_engine *engine, struct coro *coro)
 {

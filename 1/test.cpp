@@ -105,16 +105,20 @@ static void
 test_basic(void)
 {
 	unit_test_start();
+	// 创建消息总线对象
 	struct coro_bus *bus = coro_bus_new();
+	// 创建1个通道 容量为5 返回值c1表示通道号
 	int c1 = coro_bus_channel_open(bus, 5);
 	unit_check(c1 >= 0, "channel is open");
-
+	// 往通道发送数据
 	unit_check(coro_bus_send(bus, c1, 123) == 0, "send");
 	unsigned data = 0;
+	// 从通道接收数据
 	unit_check(coro_bus_recv(bus, c1, &data) == 0, "recv");
 	unit_check(data == 123, "result");
-
+	// 关闭通道
 	coro_bus_channel_close(bus, c1);
+	// 删除总线 释放资源
 	coro_bus_delete(bus);
 	unit_test_finish();
 }
@@ -190,7 +194,9 @@ test_channel_reopen(void)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-
+/**
+ * 多通道并存时的独立性
+ */
 static void
 test_multiple_channels(void)
 {
@@ -268,6 +274,7 @@ test_send_basic(void)
 	unit_assert(coro_bus_errno() == CORO_BUS_ERR_NO_CHANNEL);
 
 	unit_msg("channel did exist");
+	// 通道容量为3
 	coro_bus_channel_close(bus, coro_bus_channel_open(bus, 3));
 	unit_assert(coro_bus_send(bus, 0, 123) != 0);
 	unit_assert(coro_bus_errno() == CORO_BUS_ERR_NO_CHANNEL);
@@ -313,7 +320,9 @@ test_send_basic(void)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-
+/**
+ * 阻塞发送的正确性
+ */
 static void
 test_send_blocking(void)
 {
@@ -328,19 +337,21 @@ test_send_blocking(void)
 
 	unit_msg("start a blocking send");
 	struct ctx_send ctx;
+	// 启动一个阻塞发送协程
 	send_start(&ctx, bus, c1, 3);
 	coro_yield();
 	unit_assert(ctx.is_started && !ctx.is_done);
-
+	// 伪唤醒 因为当前通道仍是满的
 	unit_msg("spurious wakeup");
 	coro_wakeup(ctx.worker);
 	coro_yield();
 	unit_assert(!ctx.is_done);
 
+	// 释放空间
 	unit_msg("free some space");
 	unsigned data = 0;
 	unit_assert(coro_bus_recv(bus, c1, &data) == 0 && data == 0);
-
+	// 发送完成
 	unit_msg("sending is done");
 	unit_assert(send_join(&ctx) == 0);
 
@@ -354,7 +365,10 @@ test_send_blocking(void)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-
+/**
+ * 通道已满时 多个发送协程辉阻塞
+ * 当接收不断腾出空间时 他们会依次被唤醒并正确发送 最终消息顺序正确
+ */
 static void
 test_send_blocking_recv_many(void)
 {
@@ -367,20 +381,20 @@ test_send_blocking_recv_many(void)
 	unit_msg("fill the channel");
 	for (unsigned i = 0; i < limit; ++i)
 		unit_assert(coro_bus_send(bus, c1, i) == 0);
-
+	// 启动10个发送协程 每个协程都会调用coro_bus_send
 	unit_msg("start many coros");
 	const int coro_count = 10;
 	struct ctx_send ctx[coro_count];
 	for (int i = 0; i < coro_count; ++i)
-		send_start(&ctx[i], bus, c1, i + limit);
-
+		send_start(&ctx[i], bus, c1, i + limit); // 发送的消息依次是 3..12
+	// 确保10个协程都启动但未done
 	unit_msg("ensure they are all running but not finished yet");
 	coro_yield();
 	for (int i = 0; i < coro_count; ++i) {
 		unit_assert(ctx[i].is_started);
 		unit_assert(!ctx[i].is_done);
 	}
-
+	// 接收所有消息 接收到的消息为 0..12
 	unit_msg("receive all the messages");
 	for (unsigned i = 0; i < limit + coro_count; ++i) {
 		unsigned data = 0;
@@ -684,7 +698,9 @@ test_send_recv_very_many(void)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-
+/**
+ * 通道关闭时 所有等待中的发送/接收协程都应该唤醒并返回 NO_CHANNEL
+ */
 static void
 test_wakeup_on_close(void)
 {

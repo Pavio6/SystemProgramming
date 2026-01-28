@@ -38,6 +38,12 @@ if(NOT ENABLE_GLOB_SEARCH)
         ${UTILS_SOURCES}
     )
     add_executable(test ${TEST_SOURCES})
+    add_executable(libcoro_test
+        libcoro_test.cpp
+        libcoro.cpp
+        ${UTILS_SOURCES}
+    )
+    target_include_directories(libcoro_test PRIVATE ${UTILS_DIR})
 else()
     file(GLOB TEST_SOURCES *.cpp)
     list(APPEND TEST_SOURCES ${UTILS_SOURCES})
