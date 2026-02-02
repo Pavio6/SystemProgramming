@@ -1,0 +1,26 @@
+# Build artifacts (CMake)
+**/build/
+**/CMakeFiles/
+**/CMakeCache.txt
+**/cmake_install.cmake
+**/Makefile
+**/CTestTestfile.cmake
+**/Testing/
+**/cmake-build-*/
+**/compile_commands.json
+
+# Object / binary files
+**/*.o
+**/*.obj
+**/*.a
+**/*.so
+**/*.dylib
+**/*.dll
+**/*.d
+**/*.out
+**/*.exe
+**/*.app/
+**/*.dSYM/
+
+# Local notes
+**/task_zh.txt

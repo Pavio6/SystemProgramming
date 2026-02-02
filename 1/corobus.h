@@ -13,8 +13,8 @@
 enum coro_bus_error_code {
 	CORO_BUS_ERR_NONE = 0,
 	CORO_BUS_ERR_NO_CHANNEL,
-	CORO_BUS_ERR_WOULD_BLOCK, // 操作阻塞
-	CORO_BUS_ERR_NOT_IMPLEMENTED, // 未实现
+	CORO_BUS_ERR_WOULD_BLOCK, 
+	CORO_BUS_ERR_NOT_IMPLEMENTED, 
 };
 
 struct coro_bus;

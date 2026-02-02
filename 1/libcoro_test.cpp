@@ -40,25 +40,19 @@ struct test_loop_ctx {
 	int coro_count;
 	int *next_id;
 };
-/**
- * 测试 所有协程严格按照顺序执行 每执行一次就让出执行权
- */
+
 static void *
 test_loop_coro_f(void *arg)
 {
 	struct test_loop_ctx *ctx = (decltype(ctx))arg;
 	for (int i = 0; i < ctx->yield_count; ++i) {
-		// 断言当前轮到自己运行
 		unit_assert(*ctx->next_id == ctx->id);
 		*ctx->next_id = (*ctx->next_id + 1) % ctx->coro_count;
-		// 主动让出执行权 切换到其他协程
 		coro_yield();
 	}
 	return NULL;
 }
-/**
- * 多个协程轮流yield
- */
+
 static void
 test_loop_of_yields(void)
 {
@@ -108,10 +102,7 @@ test_wakeup_self_and_suspend_f(void *arg)
 	unit_check(ctx->is_woken_up_externally, "had to be woken up externally");
 	return NULL;
 }
-/**
- * 创建一个会自挂起的协程 确认它已挂起
- * 然后外部唤醒它 最后确保正常结束
- */
+
 static void
 test_wakup_self(void)
 {
@@ -137,9 +128,7 @@ test_join_f(void *arg)
 {
 	return coro_join((struct coro *)arg);
 }
-/**
- * join的链式传递
- */
+
 static void
 test_join_of_join(void)
 {
@@ -157,9 +146,7 @@ test_join_of_join(void)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-/**
- * wakeup 对已结束协程是安全的，不会破坏 join 行为。
- */
+
 static void
 test_wakeup_of_finished(void)
 {
