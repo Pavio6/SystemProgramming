@@ -1,1 +1,0 @@
-/usr/bin/c++  -arch arm64 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/test.dir/libcoro.cpp.o CMakeFiles/test.dir/corobus.cpp.o CMakeFiles/test.dir/test.cpp.o "CMakeFiles/test.dir/Users/paul/Documents/coding/C++/sysprog-master/utils/unit.cpp.o" "CMakeFiles/test.dir/Users/paul/Documents/coding/C++/sysprog-master/utils/heap_help/heap_help.cpp.o" -o test
