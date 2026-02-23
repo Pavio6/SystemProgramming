@@ -24,3 +24,13 @@
 
 # Local notes
 **/task_zh.txt
+
+# OS / Python cache
+.DS_Store
+**/__pycache__/
+**/*.pyc
+
+# Local debug outputs
+out.txt
+output_expected.txt
+output_got.txt
