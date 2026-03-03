@@ -22,6 +22,21 @@ is_builtin_exit(const command &cmd)
 	return cmd.exe == "exit";
 }
 
+static int
+parse_exit_code(const command &cmd)
+{
+	if (cmd.args.empty())
+		return 0;
+
+	const char *arg = cmd.args[0].c_str();
+	char *end = nullptr;
+	errno = 0;
+	long long value = strtoll(arg, &end, 10);
+	if (errno != 0 || end == arg || *end != '\0')
+		return 255;
+	return (int)(unsigned char)value;
+}
+
 static std::vector<char *>
 build_argv(const command &cmd)
 {
@@ -43,9 +58,7 @@ run_builtin_in_child(const command &cmd)
 		_exit(0);
 	}
 	if (is_builtin_exit(cmd)) {
-		int code = 0;
-		if (!cmd.args.empty())
-			code = atoi(cmd.args[0].c_str());
+		int code = parse_exit_code(cmd);
 		_exit(code);
 	}
 	_exit(127);
@@ -85,9 +98,7 @@ execute_pipeline(const std::vector<command> &commands,
 			return 0;
 		}
 		if (is_builtin_exit(cmd)) {
-			int code = 0;
-			if (!cmd.args.empty())
-				code = atoi(cmd.args[0].c_str());
+			int code = parse_exit_code(cmd);
 			if (allow_shell_exit && out_type == OUTPUT_TYPE_STDOUT)
 				exit(code);
 			return code;
