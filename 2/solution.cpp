@@ -10,6 +10,9 @@
 #include <unistd.h>
 #include <vector>
 
+static bool g_should_exit_shell = false;
+static int g_shell_exit_code = 0;
+
 static bool
 is_builtin_cd(const command &cmd)
 {
@@ -99,8 +102,10 @@ execute_pipeline(const std::vector<command> &commands,
 		}
 		if (is_builtin_exit(cmd)) {
 			int code = parse_exit_code(cmd);
-			if (allow_shell_exit && out_type == OUTPUT_TYPE_STDOUT)
-				exit(code);
+			if (allow_shell_exit && out_type == OUTPUT_TYPE_STDOUT) {
+				g_should_exit_shell = true;
+				g_shell_exit_code = code;
+			}
 			return code;
 		}
 	}
@@ -308,6 +313,10 @@ main(void)
 			}
 			last_status = execute_command_line(line);
 			delete line;
+			if (g_should_exit_shell) {
+				parser_delete(p);
+				return g_shell_exit_code;
+			}
 		}
 	}
 	parser_delete(p);
