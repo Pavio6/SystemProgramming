@@ -10,8 +10,10 @@
 #include <unistd.h>
 #include <vector>
 
-static bool g_should_exit_shell = false;
-static int g_shell_exit_code = 0;
+struct execution_outcome {
+	bool should_exit_shell = false;
+	int shell_exit_code = 0;
+};
 
 static bool
 is_builtin_cd(const command &cmd)
@@ -82,9 +84,11 @@ execute_pipeline(const std::vector<command> &commands,
                  bool apply_redirect,
                  enum output_type out_type,
                  const std::string &out_file,
-                 bool allow_shell_exit)
+                 bool allow_shell_exit,
+                 execution_outcome *outcome)
 {
 	assert(!commands.empty());
+	assert(outcome != nullptr);
 
 	const bool has_pipe = (commands.size() > 1);
 
@@ -100,14 +104,14 @@ execute_pipeline(const std::vector<command> &commands,
 			}
 			return 0;
 		}
-		if (is_builtin_exit(cmd)) {
-			int code = parse_exit_code(cmd);
-			if (allow_shell_exit && out_type == OUTPUT_TYPE_STDOUT) {
-				g_should_exit_shell = true;
-				g_shell_exit_code = code;
+			if (is_builtin_exit(cmd)) {
+				int code = parse_exit_code(cmd);
+				if (allow_shell_exit && out_type == OUTPUT_TYPE_STDOUT) {
+					outcome->should_exit_shell = true;
+					outcome->shell_exit_code = code;
+				}
+				return code;
 			}
-			return code;
-		}
 	}
 
 	int out_fd = -1;
@@ -198,9 +202,11 @@ execute_pipeline(const std::vector<command> &commands,
 }
 
 static int
-execute_command_line_internal(const struct command_line *line)
+execute_command_line_internal(const struct command_line *line,
+                              execution_outcome *outcome)
 {
 	assert(line != NULL);
+	assert(outcome != nullptr);
 	int last_status = 0;
 
 	struct pipeline {
@@ -253,21 +259,25 @@ execute_command_line_internal(const struct command_line *line)
 		if (line->out_type != OUTPUT_TYPE_STDOUT && i == pipelines.size() - 1)
 			apply_redirect = true;
 
-		last_status = execute_pipeline(
-		    pipelines[i].commands,
-		    apply_redirect,
-		    line->out_type,
-		    line->out_file,
-		    true);
-	}
+			last_status = execute_pipeline(
+			    pipelines[i].commands,
+			    apply_redirect,
+			    line->out_type,
+			    line->out_file,
+			    true,
+			    outcome);
+		}
 
 	return last_status;
 }
 
 static int
-execute_command_line(const struct command_line *line)
+execute_command_line(const struct command_line *line, execution_outcome *outcome)
 {
 	assert(line != NULL);
+	assert(outcome != nullptr);
+	outcome->should_exit_shell = false;
+	outcome->shell_exit_code = 0;
 
 	while (true) {
 		int status = 0;
@@ -283,13 +293,14 @@ execute_command_line(const struct command_line *line)
 			return 1;
 		}
 		if (bg == 0) {
-			int code = execute_command_line_internal(line);
+			execution_outcome child_outcome;
+			int code = execute_command_line_internal(line, &child_outcome);
 			_exit(code);
 		}
 		return 0;
 	}
 
-	return execute_command_line_internal(line);
+	return execute_command_line_internal(line, outcome);
 }
 
 int
@@ -307,18 +318,19 @@ main(void)
 			enum parser_error err = parser_pop_next(p, &line);
 			if (err == PARSER_ERR_NONE && line == NULL)
 				break;
-			if (err != PARSER_ERR_NONE) {
-				printf("Error: %d\n", (int)err);
-				continue;
-			}
-			last_status = execute_command_line(line);
-			delete line;
-			if (g_should_exit_shell) {
-				parser_delete(p);
-				return g_shell_exit_code;
+				if (err != PARSER_ERR_NONE) {
+					printf("Error: %d\n", (int)err);
+					continue;
+				}
+				execution_outcome outcome;
+				last_status = execute_command_line(line, &outcome);
+				delete line;
+				if (outcome.should_exit_shell) {
+					parser_delete(p);
+					return outcome.shell_exit_code;
+				}
 			}
 		}
-	}
 	parser_delete(p);
 	return last_status;
 }
